@@ -38,8 +38,8 @@ class HTMLBook(object):
 
         url_base = '/'.join(self.toc_url.split('/')[:-1])
         for i, page in enumerate(toc):
-            #if i == 3:
-            #    #break
+            if i == 3:
+                break
 
             full_url = url_base + '/' + page
             print "retrieving page: %s (%i/%i)" %(full_url, i, len(toc)) 
@@ -51,6 +51,8 @@ class HTMLBook(object):
 
         pages = self.retrieve()
         print 'Striping bodies.'
+        
+        
         pages = map(self.getBody, pages)
         pages = map(self.stripToHeading, pages)
         pages = map(self.stripFooter, pages)
