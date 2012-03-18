@@ -1,6 +1,15 @@
+import yaml
 
 test_record2 = '<HTML><BODY>This is a test, lets see if it works. I really hope it does!</body></html>'
 
+pil_meta ="""
+url: "http://www.lua.org/pil/index.html"
+author: "Roberto Ierusalimschy"
+title: "Programming in Lua"
+
+footer-tag: "hr"
+"""
+pil_meta_dict = yaml.load(pil_meta) 
 
 preface_html = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN"> 
 <html><head><title>Programming in Lua : p1</title> 
