@@ -1,0 +1,9 @@
+url: "http://book.realworldhaskell.org/read/" 
+author:  "Bryan O'Sullivan, Don Stewart, and John Goerzen"
+title: "Real World Haskell"
+
+footer-tag: "div"
+footer-attrs: 
+        class: "rwhfooter"
+#    attrs:
+

@@ -9,7 +9,8 @@ from test_page import *
 
 urlToTitle = {
         "http://www.lua.org/pil/index.html" : "Programming in Lua",
-        "http://mitpress.mit.edu/sicp/full-text/book/book-Z-H-4.html" : "Structure and Interpretation of Computer Programs"
+        "http://mitpress.mit.edu/sicp/full-text/book/book-Z-H-4.html" : "Structure and Interpretation of Computer Programs",
+        "http://book.realworldhaskell.org/read/" : "Real World Haskell"
         }
 
 class Metadata(object):
