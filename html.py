@@ -14,11 +14,12 @@ from test_page import *
 
 
 class Section(object):
-
+    """
+    To represent one html page of an ebook and the functionality to remove
+    headers and footers.
+    """
     def __init__(self, text):
-        #self.url = url
-        
-        #text = seld._retrieve(url)
+
         soup = BeautifulSoup(text)
         body = soup.find('body')
         body.extract()
@@ -27,12 +28,14 @@ class Section(object):
         self.soup.contents = body.contents
         
     def strip(self, tag, stop_condition):
+        """Remove tags for which stop_condition(tag) is false."""
         while not stop_condition(tag):
             t = tag.nextSibling
             tag.extract()
             tag = t
 
     def removeHeader(self):
+        """Remove generic tags at the top of a page."""
         headings = ['h1', 'h2', 'h3', 'h4']
 
         for i in range(5):
@@ -47,18 +50,19 @@ class Section(object):
         self.strip(self.soup.contents[0], lambda tag : tag == h)
     
     def removeFooter(self, *args, **kwargs):
+        """Remove generic tags at the bottom of a page."""
         foot = self.soup.find(args, kwargs)
-        #print foot, kwargs
         self.strip(foot, lambda tag : tag is None)
 
 
 
 class Request(object):
+    """For making http requests."""
     def __init__(self, url):
         self.url = url
 
     def retrieve(self, metadata):
-
+        """Get all the html pages that belongs to an ebook."""
         index_page = self.retrieveURL(self.url)
         section = Section(index_page)
         section.removeHeader()
@@ -81,6 +85,7 @@ class Request(object):
         return pages       
 
     def retrieveURL(self, url):
+        """Request an html page over http."""
         p = urllib2.urlopen(url)
         content = p.read()
         p.close()
@@ -88,7 +93,7 @@ class Request(object):
         return content       
 
     def parseRelativeLinks(self, html):
-
+        """Find all the relative links in a web page."""
         HTML = html.upper()
         a_tag = HTML.find('CONTENTS')
         href = 0
@@ -105,49 +110,46 @@ class Request(object):
             close_quote = HTML.find(quote, open_quote + 1)
             
             u = html[open_quote:close_quote]
-            if not u in urls:
+            u = u.split('#')[0]
+            if not u in urls and u.find('/') == -1:
                 urls.append(u)
         
-        urls = filter(lambda u: u.find('/') == -1, urls)
-        urls = filter(lambda u: u[0] != '#', urls)
-        urls = map(lambda s: s.split('#')[0], urls)
-        urls_ = []
-        for u in urls:
-            if not u in urls_:
-                urls_.append(u)
-        urls = urls_
         print(urls)
         return urls
 
 class Book(object):
+    """Represtents an ebook in html format."""
     def __init__(self, url):
+
         self.url = url
         self.content = ''
         self.meta = Metadata(url)
 
     def make(self): #, filename):
-
+        """Retrieve a book from the given url."""
         request = Request(self.url)
         pages = request.retrieve(self.meta)
 
-        sections = []
+        content = ''
         for page in pages:
             section = Section(page)
             section.removeHeader()
             section.removeFooter(self.meta['footer-tag'], **self.meta['footer-attrs'])
 
-            self.content += section.soup.prettify() #.append(section)
+            content += section.soup.prettify() #.append(section)
 
-        self.content = '<html><head><title>Programming in Lua</title></head><body>' + self.content
+        self.content = '<html><head><title>%s</title></head><body>' % self.meta['title']
+        self.content += content
         self.content += '</body></html>'
 
-        filename = self.meta.filename(ext = '.html')
+        filename = self.meta.filename(ext='.html')
 
         f = open(filename, 'w')
         f.write(self.content)
         f.close()
 
     def convert(self, format_):
+        """Convert the book from html to another format."""
         command = """ebook-convert 
             %s %s 
             --authors \"%s\" 
@@ -159,8 +161,9 @@ class Book(object):
         command = command.replace('\n', '')
         os.system(command)
 
-
-
+#
+# Test code.
+#
 class SectionTest(unittest.TestCase):
     def setUp(self):
         pass
@@ -192,8 +195,10 @@ class RequestTest(unittest.TestCase):
                 self.request.parseRelativeLinks("""
                     <a href='some_index.html'>Google</a>
                     <A href=\"second_index.html\">hi</a>
+                    <A href='third.html#here'>hi</a>
+                    <A href='third.html#there'>hi</a>
                     <a href='http://www.google.com'>Google</a>"""),
-                ['some_index.html', 'second_index.html'])
+                ['some_index.html', 'second_index.html', 'third.html'])
 
 
 if __name__ == '__main__':
