@@ -21,7 +21,7 @@ class Section(object):
     """
 
     # (no *://)(no *.*)*#*
-    relative_regex = re.compile('^(?!.*://)?(?!.*\..*).*#.*')
+    relative_regex = re.compile('^(?!.*://)?(?!.*\..*\.).*#.*')
 
     def __init__(self, text):
 
@@ -66,6 +66,7 @@ class Section(object):
         #aTags = filter(lambda tag: tag['href']
         #print aTags
         for tag in aTags:
+            print tag['href'] + " -> " + '#' + tag['href'].split('#')[1]
             tag['href'] = '#' + tag['href'].split('#')[1]
 
 
@@ -93,7 +94,7 @@ class Request(object):
             #    break
 
             full_url = url_base + '/' + page
-            print "retrieving page: %s (%i/%i)" %(full_url, i, len(toc)) 
+            print "retrieving page: %s (%i/%i)" %(full_url, i+1, len(toc)) 
             pages.append(self.retrieveURL(full_url))
 
         return pages       
@@ -148,8 +149,9 @@ class Book(object):
         for page in pages:
             section = Section(page)
             section.removeHeader(**self.meta['header-attrs'])
-            section.fixRelativeLinks()
             section.removeFooter(self.meta['footer-tag'], **self.meta['footer-attrs'])
+
+            section.fixRelativeLinks()
 
             content += section.soup.prettify() #.append(section)
 
@@ -202,7 +204,7 @@ class SectionTest(unittest.TestCase):
         section.removeFooter('hr')
         self.assertEqual(section.soup, BeautifulSoup(preface_no_header_footer.replace('\n','')))
     def test_fixLocalTags(self):
-        section = Section('''<body><a id='test1'>test</a> <a id='test2' href='hi#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a></body>''')
+        section = Section('''<body><a id='test1'>test</a> <a id='test2' href='hi.html#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a></body>''')
         section.fixRelativeLinks()
         self.assertEqual(section.soup, BeautifulSoup('''<a id='test1'>test</a> <a id='test2' href='#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a>'''))
 
