@@ -14,7 +14,7 @@ urlToTitle = {
         }
 
 class Metadata(object):
-    _defaults = {'footer-tag':None, 'footer-attrs':None} 
+    _defaults = {'footer-tag':None, 'footer-attrs':None, 'header-attrs':None}
 
     def __init__(self, url):
        

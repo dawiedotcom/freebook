@@ -5,6 +5,7 @@
 import urllib2
 import unittest
 import os
+import re
 from BeautifulSoup import BeautifulSoup, NavigableString
 
 from metadata import Metadata
@@ -18,6 +19,10 @@ class Section(object):
     To represent one html page of an ebook and the functionality to remove
     headers and footers.
     """
+
+    # (no *://)(no *.*)*#*
+    relative_regex = re.compile('^(?!.*://)?(?!.*\..*).*#.*')
+
     def __init__(self, text):
 
         soup = BeautifulSoup(text)
@@ -34,12 +39,12 @@ class Section(object):
             tag.extract()
             tag = t
 
-    def removeHeader(self):
+    def removeHeader(self, **kwargs):
         """Remove generic tags at the top of a page."""
         headings = ['h1', 'h2', 'h3', 'h4']
 
         for i in range(5):
-            h = self.soup.findAll('h' + str(i))
+            h = self.soup.findAll('h' + str(i), kwargs)
             if len(h) != 0:
                 break
 
@@ -49,10 +54,19 @@ class Section(object):
 
         self.strip(self.soup.contents[0], lambda tag : tag == h)
     
-    def removeFooter(self, *args, **kwargs):
+    def removeFooter(self, tag_name, **kwargs):
         """Remove generic tags at the bottom of a page."""
-        foot = self.soup.find(args, kwargs)
+        foot = self.soup.find(tag_name, kwargs)
         self.strip(foot, lambda tag : tag is None)
+
+    def fixRelativeLinks(self):
+        """Make all the relative links point to anchors in this file"""
+        #aTags = self.soup.findAll(lambda tag: 'href' in [a[0] for a in tag.attrs] and tag['href'][0] == '/')
+        aTags = self.soup.findAll(href=self.relative_regex) #re.compile('^/.*#,*'))
+        #aTags = filter(lambda tag: tag['href']
+        #print aTags
+        for tag in aTags:
+            tag['href'] = '#' + tag['href'].split('#')[1]
 
 
 
@@ -133,7 +147,8 @@ class Book(object):
         content = ''
         for page in pages:
             section = Section(page)
-            section.removeHeader()
+            section.removeHeader(**self.meta['header-attrs'])
+            section.fixRelativeLinks()
             section.removeFooter(self.meta['footer-tag'], **self.meta['footer-attrs'])
 
             content += section.soup.prettify() #.append(section)
@@ -186,6 +201,11 @@ class SectionTest(unittest.TestCase):
         section.removeHeader()
         section.removeFooter('hr')
         self.assertEqual(section.soup, BeautifulSoup(preface_no_header_footer.replace('\n','')))
+    def test_fixLocalTags(self):
+        section = Section('''<body><a id='test1'>test</a> <a id='test2' href='hi#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a></body>''')
+        section.fixRelativeLinks()
+        self.assertEqual(section.soup, BeautifulSoup('''<a id='test1'>test</a> <a id='test2' href='#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a>'''))
+
 
 class RequestTest(unittest.TestCase):
     def setUp(self):
