@@ -21,7 +21,8 @@ class Section(object):
     """
 
     # (no *://)(no *.*)*#*
-    relative_regex = re.compile('^(?!.*://)?(?!.*\..*\.).*#.*')
+    #relative_regex = re.compile('^(?!.*://)?(?!.*\..*\.).*#.*')
+    relative_regex = re.compile('^(?!.*://).*#.*')
 
     def __init__(self, text):
 
@@ -69,7 +70,7 @@ class Section(object):
             print tag['href'] + " -> " + '#' + tag['href'].split('#')[1]
             tag['href'] = '#' + tag['href'].split('#')[1]
 
-
+    
 
 class Request(object):
     """For making http requests."""
@@ -204,9 +205,9 @@ class SectionTest(unittest.TestCase):
         section.removeFooter('hr')
         self.assertEqual(section.soup, BeautifulSoup(preface_no_header_footer.replace('\n','')))
     def test_fixLocalTags(self):
-        section = Section('''<body><a id='test1'>test</a> <a id='test2' href='hi.html#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a></body>''')
+        section = Section('''<body><a id='test1'>test</a> <a id='test2' href='hi.html#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='http://www.some.com/hi#tag'>there again</a><a href="getting-started.html#starting.calc.precedence"></body>''')
         section.fixRelativeLinks()
-        self.assertEqual(section.soup, BeautifulSoup('''<a id='test1'>test</a> <a id='test2' href='#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='www.some.com/hi#tag'>there again</a>'''))
+        self.assertEqual(section.soup, BeautifulSoup('''<a id='test1'>test</a> <a id='test2' href='#test1'>test</a><a href='http://www.some.com/page#anchor'>there</a><a href='http://www.some.com/hi#tag'>there again</a><a href="#starting.calc.precedence">'''))
 
 
 class RequestTest(unittest.TestCase):
