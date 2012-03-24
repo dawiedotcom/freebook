@@ -2,7 +2,9 @@
 # Contact   dawiedotcom@gmail.com
 
 
+import urllib
 import urllib2
+import urlparse
 import unittest
 import os
 import re
@@ -62,15 +64,40 @@ class Section(object):
 
     def fixRelativeLinks(self):
         """Make all the relative links point to anchors in this file"""
-        #aTags = self.soup.findAll(lambda tag: 'href' in [a[0] for a in tag.attrs] and tag['href'][0] == '/')
-        aTags = self.soup.findAll(href=self.relative_regex) #re.compile('^/.*#,*'))
-        #aTags = filter(lambda tag: tag['href']
-        #print aTags
+        aTags = self.soup.findAll(href=self.relative_regex) 
         for tag in aTags:
-            print tag['href'] + " -> " + '#' + tag['href'].split('#')[1]
+            #print tag['href'] + " -> " + '#' + tag['href'].split('#')[1]
             tag['href'] = '#' + tag['href'].split('#')[1]
 
-    
+    def getImages(self, meta):
+        '''Download all the images and change img tags accordingly.'''
+        imgTags = self.soup.findAll('img')
+        parsed = list(urlparse.urlparse(meta['url']))
+
+        for tag in imgTags:
+            filename = tag['src'].split('/')[-1]
+            outpath = os.path.join(meta.filename(ext=''), filename)
+            parsed[2] = tag['src']
+
+            if not os.path.exists(meta.filename(ext='')):
+                os.makedirs(meta.filename(ext=''))
+
+            if not os.path.exists(outpath):
+                if tag['src'].lower().startswith('http'):
+                    urllib.urlretrieve(tag['src'], outpath)
+                elif tag['src'][0] == '/':
+                    print(urlparse.urlunparse(parsed) + ' -> ' +  outpath)
+                    urllib.urlretrieve(urlparse.urlunparse(parsed), outpath)
+                else:
+                    print(meta.fullURL(tag['src']) + ' -> ' +  outpath)
+                    urllib.urlretrieve(meta.fullURL(tag['src']), outpath)
+
+
+            tag['src'] = os.path.join(meta.filename(dir_='', ext=''), filename)
+
+
+        
+ 
 
 class Request(object):
     """For making http requests."""
@@ -89,13 +116,13 @@ class Request(object):
         toc = self.parseRelativeLinks(index_page)
         pages = []
 
-        url_base = '/'.join(self.url.split('/')[:-1])
+        #url_base = '/'.join(self.url.split('/')[:-1])
         for i, page in enumerate(toc):
-            #if i == 3:
+            #if i == 2:
             #    break
 
-            full_url = url_base + '/' + page
-            print "retrieving page: %s (%i/%i)" %(full_url, i+1, len(toc)) 
+            full_url = metadata.fullURL(page) #url_base + '/' + page
+            print "retrieving page: %s (%i/%i)" %(page, i+1, len(toc)) 
             pages.append(self.retrieveURL(full_url))
 
         return pages       
@@ -130,7 +157,7 @@ class Request(object):
             if not u in urls and u.find('/') == -1:
                 urls.append(u)
         
-        print(urls)
+        #print(urls)
         return urls
 
 class Book(object):
@@ -153,6 +180,7 @@ class Book(object):
             section.removeFooter(self.meta['footer-tag'], **self.meta['footer-attrs'])
 
             section.fixRelativeLinks()
+            section.getImages(self.meta)
 
             content += section.soup.prettify() #.append(section)
 

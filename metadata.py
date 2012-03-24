@@ -14,13 +14,14 @@ urlToTitle = {
         }
 
 class Metadata(object):
-    _defaults = {'footer-tag':None, 'footer-attrs':None, 'header-attrs':None}
+    _defaults = {'footer-tag':None, 'footer-attrs':{}, 'header-attrs':{}}
 
     def __init__(self, url):
        
         #self.load(urlToTitle[url])
         self.data = {}
         self.data['url'] = url
+        self.baseURL = '/'.join(url.split('/')[:-1])
         self.data['title'] = urlToTitle[url]
 
         self.load(self.filename())
@@ -28,6 +29,11 @@ class Metadata(object):
     def filename(self, dir_ = 'books/', ext = '.yaml'):
         """Make a file name from the title"""
         return dir_ + self.data['title'].lower().replace(' ', '.') + ext 
+
+    def fullURL(self, relative):
+        if not relative[0] == '/':
+            relative = '/' + relative
+        return self.baseURL + relative
 
     def load(self, filename):
         f = open(filename)
