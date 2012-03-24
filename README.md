@@ -44,4 +44,6 @@ footer-attrs:
     <attribute2> : <value2>
 ```
 	
+You also need to add an entry in 'books/catalog.yaml' to map command line arguments
+to the `.yaml` file for the new book.
 	
