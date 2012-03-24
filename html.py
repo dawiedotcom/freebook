@@ -13,7 +13,11 @@ from BeautifulSoup import BeautifulSoup, NavigableString
 from metadata import Metadata
 from test_page import *
 
-
+def removeDup(xs):
+    '''Remove duplicates from a list without changing the order of the list'''
+    if xs == []:            return []
+    elif xs[0] in xs[1:]:   return removeDup(xs[1:])
+    else:                   return [xs[0]] + removeDup(xs[1:])
 
 
 class Section(object):
@@ -42,16 +46,26 @@ class Section(object):
             tag.extract()
             tag = t
 
+    def removeTocHeader(self):
+
+        h = self.soup.find(text=re.compile('Content'))
+        if h is None: 
+            return 
+
+        while h not in self.soup.contents:
+            h = h.parent
+
+        self.strip(self.soup.contents[0], lambda tag : tag == h)
+    
     def removeHeader(self, **kwargs):
         """Remove generic tags at the top of a page."""
         headings = ['h1', 'h2', 'h3', 'h4']
 
         for i in range(5):
-            h = self.soup.findAll('h' + str(i), kwargs)
+            h = self.soup.find('h' + str(i), kwargs)
             if len(h) != 0:
                 break
 
-        h = h[0]
         while h not in self.soup.contents:
             h = h.parent
 
@@ -101,6 +115,9 @@ class Section(object):
 
 class Request(object):
     """For making http requests."""
+    
+    relative_regex = re.compile('^(?!.*://).*html')
+
     def __init__(self, url):
         self.url = url
 
@@ -108,13 +125,14 @@ class Request(object):
         """Get all the html pages that belongs to an ebook."""
         index_page = self.retrieveURL(self.url)
         section = Section(index_page)
-        section.removeHeader()
-        section.removeFooter(metadata['footer-tag'], **metadata['footer-attrs'])
-        index_page = str(section.soup)
-        #print index_page
 
-        toc = self.parseRelativeLinks(index_page)
+        section.removeTocHeader()
+        section.removeFooter(metadata['footer-tag'], **metadata['footer-attrs'])
+
+        toc = self.parseRelativeLinks(section.soup)
+        #print toc
         pages = []
+
 
         #url_base = '/'.join(self.url.split('/')[:-1])
         for i, page in enumerate(toc):
@@ -135,38 +153,22 @@ class Request(object):
 
         return content       
 
-    def parseRelativeLinks(self, html):
+    def parseRelativeLinks(self, soup):
         """Find all the relative links in a web page."""
-        HTML = html.upper()
-        a_tag = HTML.find('CONTENTS')
-        href = 0
-        urls = []
+        urls = [tag['href'] for tag in soup.findAll(href=self.relative_regex)]
+        urls = map(lambda u: u.split('#')[0], urls)
+        return removeDup(urls)
 
-        while (True):
-            a_tag = HTML.find('<A ', a_tag + 1)
-            if (a_tag == -1):
-                break
-            href  = HTML.find('HREF=', a_tag)
-            quote = HTML[href + len('HREF=')]
-
-            open_quote = HTML.find(quote, href) + 1
-            close_quote = HTML.find(quote, open_quote + 1)
-            
-            u = html[open_quote:close_quote]
-            u = u.split('#')[0]
-            if not u in urls and u.find('/') == -1:
-                urls.append(u)
-        
-        #print(urls)
-        return urls
 
 class Book(object):
     """Represtents an ebook in html format."""
-    def __init__(self, url):
+    def __init__(self, title):
 
-        self.url = url
+        self.meta = Metadata(title)
+
+        self.url = self.meta['url']
+        print self.url
         self.content = ''
-        self.meta = Metadata(url)
 
     def make(self): #, filename):
         """Retrieve a book from the given url."""
@@ -243,12 +245,12 @@ class RequestTest(unittest.TestCase):
         self.request = Request("")
     def test_parseLinks(self):
         self.assertEqual(
-                self.request.parseRelativeLinks("""
+                self.request.parseRelativeLinks(BeautifulSoup("""
                     <a href='some_index.html'>Google</a>
                     <A href=\"second_index.html\">hi</a>
                     <A href='third.html#here'>hi</a>
                     <A href='third.html#there'>hi</a>
-                    <a href='http://www.google.com'>Google</a>"""),
+                    <a href='http://www.google.com'>Google</a>""")),
                 ['some_index.html', 'second_index.html', 'third.html'])
 
 

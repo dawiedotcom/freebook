@@ -1,0 +1,16 @@
+# SICP
+sicp.yaml:
+    - 'structure and interpretation of computer programs'
+    - 'sicp'
+    - 'http://mitpress.mit.edu/sicp/full-text/book/book-Z-H-4.html'
+
+# Programming in Lua
+programming.in.lua.yaml:
+    - 'programming in lua'
+    - 'http://www.lua.org/pil/index.html'
+
+# Real World Haskell
+real.world.haskell.yaml:
+    - 'real world haskell'
+    - 'http://book.realworldhaskell.org/read/'
+
