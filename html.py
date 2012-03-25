@@ -7,10 +7,12 @@ import urllib2
 import urlparse
 import unittest
 import os
+import subprocess
 import re
 from BeautifulSoup import BeautifulSoup, NavigableString
 
 from metadata import Metadata
+from progressbar import ProgressBar
 from test_page import *
 
 def removeDup(xs):
@@ -32,12 +34,16 @@ class Section(object):
 
     def __init__(self, text):
 
+        # Put everything in the <body> tag in a BeautifulSoup object.
         soup = BeautifulSoup(text)
         body = soup.find('body')
         body.extract()
 
         self.soup = BeautifulSoup()
         self.soup.contents = body.contents
+
+        # A safe place for all the image urls.
+        self.images = []
         
     def strip(self, tag, stop_condition):
         """Remove tags for which stop_condition(tag) is false."""
@@ -47,7 +53,7 @@ class Section(object):
             tag = t
 
     def removeTocHeader(self):
-
+        '''Remove everything before the first occurence of "Content"'''
         h = self.soup.find(text=re.compile('Content'))
         if h is None: 
             return 
@@ -59,11 +65,10 @@ class Section(object):
     
     def removeHeader(self, **kwargs):
         """Remove generic tags at the top of a page."""
-        headings = ['h1', 'h2', 'h3', 'h4']
 
         for i in range(5):
             h = self.soup.find('h' + str(i), kwargs)
-            if len(h) != 0:
+            if not h is None: #len(h) != 0:
                 break
 
         while h not in self.soup.contents:
@@ -86,31 +91,16 @@ class Section(object):
     def getImages(self, meta):
         '''Download all the images and change img tags accordingly.'''
         imgTags = self.soup.findAll('img')
-        parsed = list(urlparse.urlparse(meta['url']))
+        #parsed = list(urlparse.urlparse(meta['url']))
 
         for tag in imgTags:
+            # Keep the web location of the image and change the source to the local
+            # copy.
+            self.images.append(tag['src'])
             filename = tag['src'].split('/')[-1]
-            outpath = os.path.join(meta.filename(ext=''), filename)
-            parsed[2] = tag['src']
-
-            if not os.path.exists(meta.filename(ext='')):
-                os.makedirs(meta.filename(ext=''))
-
-            if not os.path.exists(outpath):
-                if tag['src'].lower().startswith('http'):
-                    urllib.urlretrieve(tag['src'], outpath)
-                elif tag['src'][0] == '/':
-                    print(urlparse.urlunparse(parsed) + ' -> ' +  outpath)
-                    urllib.urlretrieve(urlparse.urlunparse(parsed), outpath)
-                else:
-                    print(meta.fullURL(tag['src']) + ' -> ' +  outpath)
-                    urllib.urlretrieve(meta.fullURL(tag['src']), outpath)
-
-
             tag['src'] = os.path.join(meta.filename(dir_='', ext=''), filename)
 
-
-        
+        return self.images
  
 
 class Request(object):
@@ -132,15 +122,17 @@ class Request(object):
         toc = self.parseRelativeLinks(section.soup)
         #print toc
         pages = []
-
+        
+        progress = ProgressBar(len(toc), message='Retrieving HTML:\t')
 
         #url_base = '/'.join(self.url.split('/')[:-1])
         for i, page in enumerate(toc):
             #if i == 2:
             #    break
+            progress.update(i+1)    
 
             full_url = metadata.fullURL(page) #url_base + '/' + page
-            print "retrieving page: %s (%i/%i)" %(page, i+1, len(toc)) 
+            #print "retrieving page: %s (%i/%i)" %(page, i+1, len(toc)) 
             pages.append(self.retrieveURL(full_url))
 
         return pages       
@@ -159,33 +151,78 @@ class Request(object):
         urls = map(lambda u: u.split('#')[0], urls)
         return removeDup(urls)
 
+    def retrieveImages(self, meta, imageSrc):
+        '''Download all the images.'''
+
+        # Parse url
+        parsed = list(urlparse.urlparse(meta['url']))
+
+        # Create a folder for the images.
+        if not os.path.exists(meta.filename(ext='')):
+            os.makedirs(meta.filename(ext=''))
+
+        progress = ProgressBar(len(imageSrc), 'Retrieving images:\t')
+        for i, src in enumerate(imageSrc):
+            progress.update(i+1)
+
+            # Get the filename, output path and web location.
+            filename = src.split('/')[-1]
+            outpath = os.path.join(meta.filename(ext=''), filename)
+            parsed[2] = src
+
+            # Get the image based on how the url was given.
+            if not os.path.exists(outpath):
+                if src.lower().startswith('http'):
+                    urllib.urlretrieve(src, outpath)
+                elif src[0] == '/':
+                    #print(urlparse.urlunparse(parsed) + ' -> ' +  outpath)
+                    urllib.urlretrieve(urlparse.urlunparse(parsed), outpath)
+                else:
+                    #print(meta.fullURL(src) + ' -> ' +  outpath)
+                    urllib.urlretrieve(meta.fullURL(src), outpath)
+
+            #src = os.path.join(meta.filename(dir_='', ext=''), filename)
+
+
 
 class Book(object):
     """Represtents an ebook in html format."""
     def __init__(self, title):
 
         self.meta = Metadata(title)
-
         self.url = self.meta['url']
-        print self.url
+
+        print('%(title)s from %(url)s' % self.meta)
         self.content = ''
 
     def make(self): #, filename):
         """Retrieve a book from the given url."""
+
+        # Get all the html content of the book
         request = Request(self.url)
         pages = request.retrieve(self.meta)
 
+        # Remove headers, footers, fix relative links
         content = ''
-        for page in pages:
+        images = []
+        progress = ProgressBar(len(pages), message='Removing non content:\t')
+        for i, page in enumerate(pages):
+            progress.update(i+1)
+
             section = Section(page)
             section.removeHeader(**self.meta['header-attrs'])
             section.removeFooter(self.meta['footer-tag'], **self.meta['footer-attrs'])
-
             section.fixRelativeLinks()
-            section.getImages(self.meta)
+
+            #section.getImages(self.meta)
+            images += section.getImages(self.meta)
 
             content += section.soup.prettify() #.append(section)
 
+        # Get all the images in the book.
+        request.retrieveImages(self.meta, removeDup(images))
+
+        # Make a local copy of the html book.
         self.content = '<html><head><title>%s</title></head><body>' % self.meta['title']
         self.content += content
         self.content += '</body></html>'
@@ -198,16 +235,22 @@ class Book(object):
 
     def convert(self, format_):
         """Convert the book from html to another format."""
-        command = """ebook-convert 
-            %s %s 
-            --authors \"%s\" 
-            --level1-toc //h:h1 
-            --level2-toc //h:h2""" % (  self.meta.filename(ext='.html'), 
-                                        self.meta.filename(ext=format_), 
-                                        self.meta['author'])
+        print('Converting from html to %s' % format_)
 
-        command = command.replace('\n', '')
-        os.system(command)
+        command = ['ebook-convert',
+                self.meta.filename(ext='.html'), 
+                self.meta.filename(ext=format_),
+                ' --authors \"%(author)s\"' % self.meta,
+                ' --level1-toc //h:h1',
+                ' --level2-toc //h:h2'
+            ]
+        output_dir = self.meta.filename(ext='')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        log = open(os.path.join(output_dir, 'ebook-convert.log'), 'w')
+
+        subprocess.call(command, stdout=log)
+        log.close()
 
 #
 # Test code.
