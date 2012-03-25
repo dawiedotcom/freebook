@@ -3,7 +3,7 @@
 Freebook is a simple script to convert freely available ebooks from html 
 to mobi.
 
-*Disclaimer* This is a personal project and there is still a lot to be done
+_Disclaimer_ This is a personal project and there is still a lot to be done
 before this will be in a proper working order.
 
 
@@ -22,7 +22,7 @@ argument. For example
 
 ### Adding a new book
 
-Add a `.yaml` file for your book with at least the following fields
+_Step 1_ Add a `.yaml` file for your book with at least the following fields
 
 ```yaml
 url: <url to the table of content page>
@@ -44,6 +44,9 @@ footer-attrs:
     <attribute2> : <value2>
 ```
 	
-You also need to add an entry in 'books/catalog.yaml' to map command line arguments
+_Step 2_ You also need to add an entry in 'books/catalog.yaml' to map command line arguments
 to the `.yaml` file for the new book.
-	
+
+_Step 3_ Send me a pull request. Someone else might want to read the book on their Kindle 
+too.
+
